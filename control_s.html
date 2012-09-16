@@ -1,0 +1,847 @@
+﻿<!doctype html>
+<html lang="en">
+	<head>
+		<title>webgl</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+		    body {
+			color: #000;
+			font-family:Monospace;
+			font-size:13px;
+			text-align:center;
+			font-weight: bold;
+
+			background-color: #fff;
+			margin: 0px;
+			overflow: hidden;
+		    }
+
+		    #info {
+			color:#000;
+			position: relative;
+			margin: 0 auto -2.1em;
+			top: 0px;
+
+			padding: 5px;
+			z-index:100;
+		    }
+
+		    a { color: skyblue; }
+		</style>
+	</head>
+
+	<body>
+
+		<script src="Three.js"></script>
+		<script src="socket.io.js"></script>
+		<script src='js/MD2CharacterComplex.js'></script>
+
+		<script src='js/Detector.js'></script>
+		<script src='js/Stats.js'></script>
+
+		<script>
+
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
+
+			var SCREEN_WIDTH = window.innerWidth;
+			var SCREEN_HEIGHT = window.innerHeight;
+
+			var container, camera, scene, renderer;
+
+			var showNum = 1;//现在显示的人物数目
+			var socket = io.connect('http://192.168.1.146:8088');
+
+			// 模型集合
+			var characters = [];
+			// 模型数目
+			var nCharacters = 0;
+			// 创建hash表，可以根据序号找出对应的id
+
+			var cameraControls;
+			
+			var availibleNum = [];
+
+			// 模型控制器
+			var control = function(){
+				return {
+
+					moveForward: false,
+					moveBackward: false,
+					moveLeft: false,
+					moveRight: false
+
+				};
+			}
+			
+			// 不同的模型对应不同的控制器
+			var controls = {};
+			var characterAll = {};
+			var particleLights = [];
+
+			var clock = new THREE.Clock();
+
+			init();
+			animate();
+
+			function init() {
+				// Socket
+				socket.on('keyDown',function(data){
+					console.log(data);
+					switch( data.key ) {
+
+						case 38:
+						case 87:
+							controls[data.id].moveForward = true; break;
+
+						case 40:
+						case 83: 
+							controls[data.id].moveBackward = true; break;
+
+						case 37:
+						case 65:  
+							controls[data.id].moveLeft = true; break;
+
+						case 39:
+						case 68:   
+							controls[data.id].moveRight = true; break;
+							
+					}
+				});
+				
+				socket.on('keyUp',function(data){
+					console.log(data);
+					switch( data.key ) {
+
+						case 38:
+						case 87:
+							controls[data.id].moveForward = false; break;
+
+						case 40:
+						case 83: 
+							controls[data.id].moveBackward = false; break;
+
+						case 37:
+						case 65:  
+							controls[data.id].moveLeft = false; break;
+
+						case 39:
+						case 68:   
+							controls[data.id].moveRight = false; break;
+							
+					}
+				});
+				
+				socket.on('add',function(data){
+					// 添加新成员的处理，请求其他的成员的信息
+					if(characters[showNum]){
+						characterAll[data.id] = characters[showNum];
+						characterAll[data.id].setVisible(true);
+						characterAll[data.id].root.position = data.data.position;
+						characterAll[data.id].bodyOrientation = data.data.orient;
+						characterAll[data.id].showNum = showNum;
+						controls[data.id] = new control();
+						characterAll[data.id].controls = controls[data.id];
+						showNum = showNum + 1;
+					}else if(availibleNum.length){
+						var num = availibleNum.pop();
+						characterAll[data.id] = characters[num];
+						characterAll[data.id].setVisible(true);
+						characterAll[data.id].root.position = data.data.position;
+						characterAll[data.id].bodyOrientation = data.data.orient;
+						characterAll[data.id].showNum = num;
+						controls[data.id] = new control();
+						characterAll[data.id].controls = controls[data.id];
+					}
+					console.log(data);
+				});
+				
+				socket.on('newMem',function(data){
+					console.log(data);
+					
+					if(characters[showNum]){
+						characterAll[data] = characters[showNum];
+						characterAll[data].setVisible(true);
+						characterAll[data].showNum = showNum;
+						characterAll[data].root.position.x = 150; 
+						characterAll[data].root.position.y = 72.9;
+						characterAll[data].root.position.z = 0;
+						controls[data] = new control();
+						characterAll[data].controls = controls[data];
+						showNum = showNum + 1;
+					}
+					// 添加新成员的处理，请求其他的成员的信息
+					socket.emit('position',{
+						toid:data,
+						data:{
+							position:characterAll["thismodel"].root.position,
+							
+							orient:characterAll["thismodel"].bodyOrientation
+						}		
+					});
+				});
+				
+				socket.on('disconnect',function(data){
+					console.log(data);
+				});
+				
+				socket.on('leave',function(data){
+					console.log(data);
+					controls[data] = null;
+					availibleNum.push(characterAll[data].showNum);
+					characterAll[data].setVisible(false);
+					delete characterAll[data];
+				});				
+				
+
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+
+				// 场景
+
+				scene = new THREE.Scene();
+				scene.fog = new THREE.Fog( 0xffffff, 1000, 4000 );
+
+				// 摄像头
+
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 4000 );
+				camera.position.set( 0, 150, 1300 );
+				scene.add( camera );
+
+				// LIGHTS
+				// 设置灯光，阴影等
+
+				scene.add( new THREE.AmbientLight( 0x222222 ) );
+
+				var light = new THREE.DirectionalLight( 0xffffff, 2.25 );
+				light.position.set( 200, 450, 500 );
+
+				light.castShadow = true;
+				light.shadowMapWidth = 1024;
+				light.shadowMapHeight = 1024;
+				light.shadowMapDarkness = 0.95;
+				//light.shadowCameraVisible = true;
+
+				light.shadowCascade = true;
+				light.shadowCascadeCount = 3;
+				light.shadowCascadeNearZ = [ -1.000, 0.995, 0.998 ];
+				light.shadowCascadeFarZ  = [  0.995, 0.998, 1.000 ];
+				light.shadowCascadeWidth = [ 1024, 1024, 1024 ];
+				light.shadowCascadeHeight = [ 1024, 1024, 1024 ];
+
+				scene.add( light );
+
+
+				// 设置地板材质
+
+				var gt = THREE.ImageUtils.loadTexture( "Images/grasslight-big.jpg" );
+				var gg = new THREE.PlaneGeometry( 16000, 16000 );
+				var gm = new THREE.MeshPhongMaterial( { color: 0xffffff, map: gt, perPixel: true } );
+
+				var ground = new THREE.Mesh( gg, gm );
+				ground.material.map.repeat.set( 64, 64 );
+				ground.material.map.wrapS = ground.material.map.wrapT = THREE.RepeatWrapping;
+				ground.receiveShadow = true;
+
+				scene.add( ground );
+				
+				// 设置3D世界
+
+				var mapStrips = THREE.ImageUtils.loadTexture( "./strips.png" );
+				mapStrips.wrapS = mapStrips.wrapT = THREE.RepeatWrapping;
+				mapStrips.magFilter = THREE.NearestFilter;
+				mapStrips.repeat.set( 1, 512 );
+
+				// shared materials
+
+				var materialRoad = new THREE.MeshPhongMaterial( { color: 0x222222, ambient: 0x222222, specular: 0x222222, perPixel: true } );
+
+				var materialCenter = new THREE.MeshPhongMaterial( { color: 0xffee00, ambient: 0xffee00, specular: 0xffee00, map: mapStrips, perPixel: true, alphaTest: 0.5 } );
+				materialCenter.polygonOffset = true;
+				materialCenter.polygonOffsetFactor = -1;
+				materialCenter.polygonOffsetUnits = 1;
+
+				var materialFront = new THREE.MeshBasicMaterial( { color: 0xffee00 } );
+				materialFront.polygonOffset = true;
+				materialFront.polygonOffsetFactor = -1;
+				materialFront.polygonOffsetUnits = 1;
+
+				var materialBack = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
+				materialBack.polygonOffset = true;
+				materialBack.polygonOffsetFactor = -1;
+				materialBack.polygonOffsetUnits = 1;
+
+				var materialGround = new THREE.MeshPhongMaterial( { color: 0xaaaaaa, ambient: 0xaaaaaa, specular: 0x999999, perPixel: true, vertexColors: THREE.FaceColors } );
+
+				var sharedMaterials = {
+
+					ground: materialGround,
+					road: materialRoad,
+					center: materialCenter,
+					front: materialFront,
+					back: materialBack
+
+				}
+
+				// parameters
+
+				var parametersLong = {
+
+					ROAD_LENGTH: 1000,
+
+					CENTER_WIDTH: 0.125,
+					ROAD_WIDTH: 15,
+
+					CURB_WIDTH:  0.25,
+					CURB_HEIGHT: 0.15,
+
+					DELINEATOR_WIDTH: 0.1,
+					DELINEATOR_HEIGHT: 0.9,
+
+					SIDEWALK_WIDTH: 4,
+					SIDEROAD_WIDTH: 2,
+
+					GROUND_WIDTH: 200,
+
+					LAMP_HEIGHT: 4.5,
+					LAMP_BOTTOM: 0.5,
+
+					NUM_BUILDINGS: 100
+
+				};
+
+				var parametersShort = {
+
+					ROAD_LENGTH: 500,
+
+					CENTER_WIDTH: 0.125,
+					ROAD_WIDTH: 15,
+
+					CURB_WIDTH:  0.25,
+					CURB_HEIGHT: 0.15,
+
+					DELINEATOR_WIDTH: 0.1,
+					DELINEATOR_HEIGHT: 0.9,
+
+					SIDEWALK_WIDTH: 4,
+					SIDEROAD_WIDTH: 2,
+
+					GROUND_WIDTH: 150,
+
+					LAMP_HEIGHT: 4.5,
+					LAMP_BOTTOM: 0.5,
+
+					NUM_BUILDINGS: 100
+
+				};
+
+				cityTile = generateTile( "city", parametersShort, sharedMaterials );
+
+				cityTile.position.y = -2.5;
+				scene.add( cityTile );
+				cityTile.scale.x = cityTile.scale.y = cityTile.scale.z = 65;	
+
+				// RENDERER
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setSize( SCREEN_WIDTH, SCREEN_HEIGHT );
+				renderer.setClearColor( scene.fog.color, 1 );
+
+				container.appendChild( renderer.domElement );
+
+				//
+
+				renderer.gammaInput = true;
+				renderer.gammaOutput = true;
+				renderer.shadowMapEnabled = true;
+				//renderer.shadowMapCullFrontFaces = false;
+
+				renderer.shadowMapCascade = true;
+				//renderer.shadowMapDebug = true;
+
+				// EVENTS
+				// 添加事件
+				
+				window.addEventListener( 'resize', onWindowResize, false );
+				document.addEventListener( 'keydown', onKeyDown, false );
+				document.addEventListener( 'keyup', onKeyUp, false );
+
+				// CONTROLS
+
+				cameraControls = new THREE.TrackballControls( camera, renderer.domElement );
+				cameraControls.target.set( 0, 50, 0 );
+
+				// CHARACTER
+				// 模型配置
+
+				var configOgro = {
+
+					baseUrl: "models/ogro/",
+
+					body: "ogro-light.js",
+					skins: [ "grok.jpg", "ogrobase.png", "arboshak.png", "ctf_r.png", "ctf_b.png", "darkam.png", "freedom.png",
+							 "gib.png", "gordogh.png", "igdosh.png", "khorne.png", "nabogro.png",
+							 "sharokh.png" ],
+					weapons:  [ [ "weapon-light.js", "weapon.jpg" ] ],
+					animations: {
+						move: "run",
+						idle: "stand"
+					},
+
+					walkSpeed: 350,
+					crouchSpeed: 175
+
+				};
+
+				var nRows = 1;
+				var nSkins = configOgro.skins.length;
+
+				nCharacters = nSkins * nRows;
+
+				for ( var i = 0; i < nCharacters; i ++ ) {
+
+					var character = new THREE.MD2CharacterComplex();
+					character.scale = 3;
+					character.controls = new control();
+
+					controls["thismodel"] = new control();
+					characters.push(character);
+				}
+
+				var baseCharacter = new THREE.MD2CharacterComplex();
+				baseCharacter.scale = 3;
+
+				baseCharacter.onLoadComplete = function () {
+
+					var k = 0;
+
+					for ( var j = 0; j < nRows; j ++ ) {
+
+						for ( var i = 0; i < nSkins; i ++ ) {
+
+							var cloneCharacter = characters[ k ];
+
+							cloneCharacter.shareParts( baseCharacter );
+
+							cloneCharacter.enableShadows( true );
+
+							cloneCharacter.setWeapon( 0 );
+							cloneCharacter.setSkin( i );
+
+							cloneCharacter.root.position.x = ( i - nSkins/2 ) * 150;
+							cloneCharacter.root.position.z = j * 250;
+					
+							cloneCharacter.setVisible(false);
+
+							scene.add( cloneCharacter.root );
+
+							k ++;
+
+						}
+
+					}
+	
+					characterAll["thismodel"] = characters[0];
+					characterAll["thismodel"].setVisible(true);
+					characterAll["thismodel"].controls = controls["thismodel"];
+					characterAll["thismodel"].root.position.x = 150;
+					characterAll["thismodel"].root.position.z = 0;
+					var gyro = new THREE.Gyroscope();
+					gyro.add( camera );
+
+					characters[ 0 ].root.add( gyro );
+
+				};
+
+				baseCharacter.loadParts( configOgro );
+
+			}
+
+			// EVENT HANDLERS
+
+			function onWindowResize( event ) {
+
+				SCREEN_WIDTH = window.innerWidth;
+				SCREEN_HEIGHT = window.innerHeight;
+
+				renderer.setSize( SCREEN_WIDTH, SCREEN_HEIGHT );
+
+				camera.aspect = SCREEN_WIDTH/ SCREEN_HEIGHT;
+				camera.updateProjectionMatrix();
+
+			}
+
+			function onKeyDown ( event ) {
+
+				socket.emit('keyDown',event.keyCode);
+				
+				switch( event.keyCode ) {
+
+					case 38: /*up*/	
+					case 87: /*W*/ 	
+						controls["thismodel"].moveForward = true; break;
+
+					case 40: /*down*/
+					case 83: /*S*/ 	
+						controls["thismodel"].moveBackward = true; break;
+
+					case 37: /*left*/
+					case 65: /*A*/   
+						controls["thismodel"].moveLeft = true; break;
+
+					case 39: /*right*/
+					case 68: /*D*/    
+						controls["thismodel"].moveRight = true; break;
+					
+				}
+
+			};
+
+			function onKeyUp ( event ) {
+			
+				socket.emit('keyUp',event.keyCode);
+
+				switch( event.keyCode ) {
+
+					case 38: /*up*/
+					case 87: /*W*/ controls["thismodel"].moveForward = false; break;
+
+					case 40: /*down*/
+					case 83: /*S*/ 	controls["thismodel"].moveBackward = false; break;
+
+					case 37: /*left*/
+					case 65: /*A*/ 	 controls["thismodel"].moveLeft = false; break;
+
+					case 39: /*right*/
+					case 68: /*D*/ 	  controls["thismodel"].moveRight = false; break;
+
+				}
+
+			};
+
+			//
+
+			function generateSidewalk( roadLength, curbWidth, curbHeight, sidewalkWidth, offset, materialGround ) {
+
+				var root = new THREE.Object3D();
+
+				var curbGeo = new THREE.CubeGeometry( curbWidth, curbHeight, roadLength, 1, 1, 1, materialGround, { ny: false } );
+				applyColor( curbGeo, 0, 0, 0.7 );
+				
+				var curbLeft = new THREE.Mesh( curbGeo, materialGround );
+				var curbRight = new THREE.Mesh( curbGeo, materialGround );
+
+				curbRight.position.x = curbWidth/2 + offset;
+				curbLeft.position.x = - ( curbWidth/2 + offset );
+
+				curbRight.position.y = curbHeight/2;
+				curbLeft.position.y = curbHeight/2;
+
+				curbRight.receiveShadow = true;
+				curbLeft.receiveShadow = true;
+
+				curbRight.castShadow = true;
+				curbLeft.castShadow = true;
+
+				addStatic( root, curbRight );
+				addStatic( root, curbLeft );
+
+				return root;
+
+			}
+
+			function generateLamps( n, lampHeight, lampBottom, offset, material, lightsEnabled ) {
+
+				var points = []; // for particle lights
+
+				var mergedGeo = new THREE.Geometry();
+
+				var cubeGeo2 = new THREE.CubeGeometry( 0.1,  lampHeight, 0.1,  1, 1, 1, material, { ny: false } );
+				var cubeGeo3 = new THREE.CubeGeometry( 0.15, lampBottom, 0.15, 1, 1, 1, material, { ny: false } );
+				var cubeGeo4 = new THREE.CubeGeometry( 0.25, 0.25, 0.25,       1, 1, 1, material, { ny: false } );
+
+				function generateLamp( x, y, z ) {
+
+					var h, s, v, yy;
+
+					yy = y + lampBottom + lampHeight * 0.5;
+
+					h = 0.05;
+					s = 0.1;
+					v = 0.5;
+
+					addPart( mergedGeo, cubeGeo2, x, yy, z, material, h, s, v );
+
+					yy = y + lampBottom * 0.5;
+
+					h = 0;
+					s = 0.35;
+					v = 0.5;
+
+					addPart( mergedGeo, cubeGeo3, x, yy, z, material, h, s, v );
+
+					yy = y + lampBottom + lampHeight;
+
+					h = 0.1;
+					s = 0.5;
+					v = 0.95;
+
+					addPart( mergedGeo, cubeGeo4, x, yy, z, material, h, s, v );
+
+					points.push( new THREE.Vector3( x + 0.2, yy, z + 0.2 ) );
+					points.push( new THREE.Vector3( x + 0.2, yy, z - 0.2 ) );
+					points.push( new THREE.Vector3( x - 0.2, yy, z - 0.2 ) );
+					points.push( new THREE.Vector3( x - 0.2, yy, z + 0.2 ) );
+
+				}
+
+				var x, y, z;
+
+				for ( var i = -n; i < n; i ++ ) {
+
+					x = offset;
+					y = 0;
+					z = i * 10;
+
+					generateLamp( x, y, z );
+
+					//
+
+					x = -offset;
+					y = 0;
+					z = i * 10;
+
+					generateLamp( x, y, z );
+
+				}
+
+				var mesh = new THREE.Mesh( mergedGeo, material );
+
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+
+				if ( lightsEnabled ) {
+
+					var particleGeo = new THREE.Geometry();
+
+					for ( var i = 0, il = points.length; i < il; i ++ ) {
+
+						var vertex = new THREE.Vertex( points[ i ] );
+						particleGeo.vertices[ i ] = vertex;
+
+					}
+
+					var map = THREE.ImageUtils.loadTexture( "./lensflare/lensflare0_alpha.png" );
+					var particleMaterial = new THREE.ParticleBasicMaterial( { size: 3, color: 0xffffff, map: map, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false } );
+
+					var particles = new THREE.ParticleSystem( particleGeo, particleMaterial );
+					particles.visible = false;
+					mesh.add( particles );
+
+					particleLights.push( particles );
+
+				}
+
+				return mesh;
+
+			}
+
+			//
+
+			function generateBuildings( number, distance, offsetMin, offsetMax, material ) {
+
+				var mergedGeo = new THREE.Geometry();
+
+				var baseSize = 1;
+				var cubeGeo = new THREE.CubeGeometry( baseSize, baseSize, baseSize, 1, 1, 1, material, { ny: false } );
+
+				for ( var i = 0; i < number; i ++ ) {
+
+					var sy = 1.5 + 0.5 * Math.random();
+					var sx = 5 + 10 * Math.random();
+					var sz = 10 + 10 * Math.random();
+
+					var mesh = new THREE.Mesh( cubeGeo, material );
+
+					mesh.position.x = ( Math.random() < 0.5 ? 1 : -1 ) * THREE.Math.randFloat( offsetMin + sx / 2, offsetMax );
+					sy *= 0.25 * Math.abs( mesh.position.x );
+
+					mesh.position.y = 0.5 * ( sy * baseSize );
+					mesh.position.z = 0.5 * distance * ( 2.0 * Math.random() - 1.0 );
+
+					mesh.scale.set( sx, sy, sz );
+
+					var h = 0.525  + 0.05 * Math.random();
+					var s = 0.3 + 0.25 * Math.random();
+					var v = 0.75 + 0.25 * Math.random();
+
+					applyColor( cubeGeo, h, 0.15, 0.6 );
+
+					THREE.GeometryUtils.merge( mergedGeo, mesh );
+
+				}
+
+				var mesh = new THREE.Mesh( mergedGeo, material );
+
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+
+				return mesh;
+
+			}
+
+			//
+
+			function addPart( mergedGeo, geo, x, y, z, material, h, s, v ) {
+
+				var mesh = new THREE.Mesh( geo, material );
+				mesh.position.set( x, y, z );
+
+				applyColor( geo, h, s, v );
+
+				THREE.GeometryUtils.merge( mergedGeo, mesh );
+
+			}
+			
+			function addStatic( parent, child ) {
+
+				child.matrixAutoUpdate = false;
+				child.updateMatrix();
+
+				parent.add( child );
+
+			}
+			
+			function applyColor( geo, h, s, v ) {
+
+				for ( var j = 0, jl = geo.faces.length; j < jl; j ++ ) {
+
+					geo.faces[ j ].color.setHSV( h, s, v );
+
+				}
+
+			}
+			
+			function generateTile( tileType, parameters, materials ) {
+
+				var tileRoot = new THREE.Object3D();
+
+				// side
+
+				var offset = parameters.ROAD_WIDTH / 2;
+				var sideWidth = 0;
+
+				// sidewalk
+
+				var sidewalk = generateSidewalk( parameters.ROAD_LENGTH, parameters.CURB_WIDTH, parameters.CURB_HEIGHT, parameters.SIDEWALK_WIDTH, offset, materials.ground );
+				addStatic( tileRoot, sidewalk );
+
+				sideWidth = parameters.SIDEWALK_WIDTH + parameters.CURB_WIDTH;
+
+				// ground
+
+				var offset = parameters.GROUND_WIDTH / 2 + parameters.ROAD_WIDTH / 2 + sideWidth;
+
+				// lamps
+
+				if ( tileType === "city" || tileType === "transition" ) {
+
+					var offset = parameters.ROAD_WIDTH / 2 + 0.75;
+					var n = 50 * parameters.ROAD_LENGTH / 1000;
+
+					var lightsEnabled = true;
+
+					var lamps = generateLamps( n, parameters.LAMP_HEIGHT, parameters.LAMP_BOTTOM, offset, materials.ground, lightsEnabled );
+					addStatic( tileRoot, lamps );
+
+					tileRoot.lamps = lamps;
+
+				}
+
+				// buildings
+
+				if ( tileType === "city" ) {
+
+					var offsetMin = parameters.ROAD_WIDTH / 2 + parameters.SIDEWALK_WIDTH + 2.5;
+					var offsetMax = 70;
+
+					var buildings = generateBuildings( parameters.NUM_BUILDINGS, parameters.ROAD_LENGTH, offsetMin, offsetMax, materials.ground );
+					addStatic( tileRoot, buildings );
+
+				}
+
+				if ( tileType !== "simple" ) {
+
+					// trees
+					var loader = new THREE.JSONLoader();
+					loader.load( "./js/treeGeneric.js", function( geo ) {
+
+						var offset = parameters.ROAD_WIDTH / 2 + sideWidth + 1;
+
+						var material = new THREE.MeshFaceMaterial();
+
+						function addTree( x, y, z ) {
+
+							var tree = new THREE.Mesh( geo, material );
+
+							tree.position.set( x, y, z );
+
+							var s = 0.015 + Math.random() * 0.0025;
+							var ry = Math.random() * 3.14;
+
+							tree.scale.set( s, s, s );
+							tree.rotation.y = ry;
+
+							tree.castShadow = true;
+							tree.receiveShadow = true;
+
+							addStatic( tileRoot, tree );
+
+						}
+
+						var n = 20 * parameters.ROAD_LENGTH / 1000;
+
+						for ( var i = -n; i < n; i ++ ) {
+
+							addTree(  offset, -2.35 + 2.5, 25 * i );
+							addTree( -offset, -2.35 + 2.5, 25 * i );
+
+						}
+
+					} );
+
+				}
+
+				return tileRoot;
+
+			}
+
+			//
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+				render();
+
+			}
+
+			function render() {
+
+				var delta = clock.getDelta();
+
+				cameraControls.update( delta );
+
+				for ( var i = 0; i < nCharacters; i ++ ) {
+
+					characters[ i ].update( delta );
+
+				}
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+
+	</body>
+</html>
