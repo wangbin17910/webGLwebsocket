@@ -141,51 +141,114 @@
 			animate();
 
 			function init() {
+			
 				// Socket
 				socket.on('keyDown',function(data){
-					console.log(data);
-					switch( data.key ) {
+				
+					switch( event.keyCode ) {
 
-						case 38:
-						case 87:
+						case 38: /*up*/	
+						case 87: /*W*/ 	
 							controls[data.id].moveForward = true; break;
 
-						case 40:
-						case 83: 
+						case 40: /*down*/
+						case 83: /*S*/ 	
 							controls[data.id].moveBackward = true; break;
 
-						case 37:
-						case 65:  
+						case 37: /*left*/
+						case 65: /*A*/   
 							controls[data.id].moveLeft = true; break;
 
-						case 39:
-						case 68:   
+						case 39: /*right*/
+						case 68: /*D*/    
 							controls[data.id].moveRight = true; break;
-							
+
+						case 32: /*space*/ controls[data.id].jump = true; break;
+					
+						case 89: /*Y*/ controls[data.id].death = true; break;
+					
+						case 81: /*Q*/ controls[data.id].attack = true; break;
+					
+						case 85: /*u*/ controls[data.id].pain = true; break;
+					
+						case 82: /*r*/ controls[data.id].salute = true; break;
+					
+						case 71: /*g*/ controls[data.id].crouchAttach = true; break;
+					
+						case 70: /*f*/ controls[data.id].crouchPain = true; break;
+					
+						case 72: /*h*/ controls[data.id].crouchDeath = true; break;
+					
+						case 84: /*t*/ controls[data.id].taunt = true; break;
+					
+						case 67: /*c*/ controls[data.id].flip = true; break;
+					
+						case 86: /*v*/ controls[data.id].wave = true; break;
+					
+						case 88: /*x*/ controls[data.id].point = true; break;
+					
+						case 17: /*ctrl*/  controls[data.id].crouch = true; break;
+					
+						case 48: 
+						case 49: 
+						case 50: 
+						case 51: 
+						case 52: 
+						case 53: 
+						case 54: 
+						case 55: 
+						case 56: 
+						case 57: 
+							characterAll[data.id].setWeapon(event.keyCode - 48); break;
+						
 					}
+
 				});
 				
+				// 服务器传回来动作停止的消息
 				socket.on('keyUp',function(data){
-					console.log(data);
-					switch( data.key ) {
+					
+					switch( event.keyCode ) {
 
-						case 38:
-						case 87:
-							controls[data.id].moveForward = false; break;
+						case 38: /*up*/
+						case 87: /*W*/ controls[data.id].moveForward = false; break;
 
-						case 40:
-						case 83: 
-							controls[data.id].moveBackward = false; break;
+						case 40: /*down*/
+						case 83: /*S*/ 	controls[data.id].moveBackward = false; break;
 
-						case 37:
-						case 65:  
-							controls[data.id].moveLeft = false; break;
+						case 37: /*left*/
+						case 65: /*A*/ 	 controls[data.id].moveLeft = false; break;
 
-						case 39:
-						case 68:   
-							controls[data.id].moveRight = false; break;
-							
-					}
+						case 39: /*right*/
+						case 68: /*D*/ 	  controls[data.id].moveRight = false; break;
+
+						case 32: /*space*/ controls[data.id].jump = false; break;
+						
+						case 89: /*Y*/ controls[data.id].death = false; break;
+						
+						case 81: /*Q*/ controls[data.id].attack = false; break;
+						
+						case 85: /*u*/ controls[data.id].pain = false; break;
+						
+						case 82: /*r*/ controls[data.id].salute = false; break;
+						
+						case 71: /*g*/ controls[data.id].crouchAttach = false; break;
+						
+						case 70: /*f*/ controls[data.id].crouchPain = false; break;
+						
+						case 72: /*h*/ controls[data.id].crouchDeath = false; break;
+						
+						case 84: /*t*/ controls[data.id].taunt = false; break;
+						
+						case 67: /*c*/ controls[data.id].flip = false; break;
+						
+						case 86: /*v*/ controls[data.id].wave = false; break;
+						
+						case 88: /*x*/ controls[data.id].point = false; break;
+						
+						case 17: /*ctrl*/  controls[data.id].crouch = false; break;
+						
+					}					
 				});
 				
 				socket.on('add',function(data){
@@ -222,6 +285,7 @@
 						characterAll[data].controls = controls[data];
 						showNum = showNum + 1;
 					}
+					
 					// 添加新成员的处理，请求其他的成员的信息
 					socket.emit('position',{
 						toid:data,
@@ -231,6 +295,7 @@
 							orient:characterAll["thismodel"].bodyOrientation
 						}		
 					});
+					
 				});
 				
 				socket.on('disconnect',function(data){
@@ -633,6 +698,7 @@
 			(function(){
 				menuBar.addEventListener('click',EventHandler.menuHandler,false);
 			})();
+			
 		</script>
 
 	</body>

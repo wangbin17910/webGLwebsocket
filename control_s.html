@@ -4,34 +4,53 @@
 		<title>webgl</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-		<style>
-		    body {
-			color: #000;
-			font-family:Monospace;
-			font-size:13px;
-			text-align:center;
-			font-weight: bold;
-
-			background-color: #fff;
-			margin: 0px;
-			overflow: hidden;
-		    }
-
-		    #info {
-			color:#000;
-			position: relative;
-			margin: 0 auto -2.1em;
-			top: 0px;
-
-			padding: 5px;
-			z-index:100;
-		    }
-
-		    a { color: skyblue; }
-		</style>
+		<link href="css/main.css" rel="stylesheet" type="text/css" />
 	</head>
 
 	<body>
+	
+		<ul id="menuBar">
+			<li><a><img src="ico/1.png" alt="换第一件衣服" value="0" width="50"></a></li>
+			<li><a><img src="ico/2.png" alt="换第二件衣服" value="1" width="50"></a></li>
+			<li><a><img src="ico/3.png" alt="换第三件衣服" value="2" width="50"></a></li>
+			<li><a><img src="ico/4.png" alt="换第四件衣服" value="3" width="50"></a></li>
+			<li><a><img src="ico/5.png" alt="换第五件衣服" value="4" width="50"></a></li>
+			<li><a><img src="ico/6.png" alt="" width="50"></a></li>
+			<li><a><img src="ico/7.png" alt="聊天室" width="50"></a></li>
+		</ul>
+		
+		<div class="page_home" id="js_chatroomBtn"><a href="#"></a></div>
+		<div class="task_box_h" id="js_chatroom">
+			<div class="task_top"></div>
+		    <div class="task_pic" id="face"><a href="#"><img width="50px" src="Images/1.jpg"/></a></div>
+		    <div class="task_bt task_bt_l" id="js_send"><a href="#">发送</a></div>
+		    <div class="task_bt task_bt_r" id="js_clear"><a href="#">清空</a></div>
+		    <div class="task_r_a task_edit" id="js_enterRoom"><a href="#">进入聊天室</a></div>
+		    <div class="task_body">
+		    	<table width="100%" border="0" cellspacing="0" cellpadding="0" class="task_tb">
+		          <tr>
+		            <td class="task_l">
+		            	<ul id="msg_List">
+		                	<li>
+								<div class="msg_title">烟水茫茫  20:19:33</div>
+								<div class="msg_con">长天净，绛河清浅，皓月婵娟，思绵绵。夜永对景，那堪屈指，暗想从前。</div>
+							</li>
+		                </ul>
+		            	<div class="task_s">
+		                	<textarea   rows= "2" name= "chatmsg" class="task_input" id="js_chatMsg" cols= "45"> </textarea>
+		                </div>
+		            </td>
+		            <td class="task_r">
+		            	<ul class="task_top_ul" id="msg_userList">
+		                	<li class="js_name">科学计算器</li>
+		                </ul>
+		            </td>
+		          </tr>
+		        </table>
+
+		    </div>
+		    <div class="task_end"></div>
+		</div>
 
 		<script src="Three.js"></script>
 		<script src="socket.io.js"></script>
@@ -41,7 +60,204 @@
 		<script src='js/Stats.js'></script>
 
 		<script>
+		
+			var _ = function(element){
+				return document.getElementById(element);
+			}
+			// 初始化socket
+			var socket = io.connect('http://192.168.137.58:8088');
+			
+			// 在聊天系统里面一些需要的全局变量
+			var CONFIG = {
+				privateChat : false,
+				pid : undefined
+			}
+			
+			var EventHandler = {
+			
+				menuHandler : function(e){
+					var val = e.target.getAttribute("value")*1;
+					if( val < 5){
+						characterAll['thismodel'].setSkin(val);
+					}else{
+						alert("功能尚未开放~");
+					}
+				},
+				
+				chatroomHandler : function(e){
+					var name = e.target.parentNode.getAttribute("id") || e.target.getAttribute("class");
+					
+					switch( name ){
+						
+						// 点击名字
+						case "msg_userList":
+							CONFIG.pid = e.target.getAttribute("value");
+							_("js_privateChat").firstChild.innerHTML = "私聊：" + e.target.innerHTML;
+							CONFIG.privateChat = true;
+							break;
+						
+						// 点击进入聊天室
+						case "js_enterRoom":
+							if( DocEle.chatMsg.value === "" ){
+								alert("请先输入昵称，这样别人才能知道你～");
+							}else{
+								socket.emit('enterChatroom',{
+									nickName : DocEle.chatMsg.value
+								});
+								DocEle.chatMsg.value = ""
+							}
+							break;
+						
+						// 点击清空消息
+						case "js_clear":
+							DocEle.chatMsg.value = "";
+							break;
+						
+						// 点击发送消息
+						case "js_send":
+							sendChatMsg();
+							DocEle.chatMsg.value = "";
+							break;
+					}
+				},
+				
+				// 隐藏聊天室
+				hideChatHandler : function(){
+					var nameFlag = DocEle.chatBox.className;
+					if(nameFlag === "task_box_h"){
+						DocEle.chatBox.className = "task_box";
+						DocEle.chatMsg.style.width = "290px";
+						DocEle.face.style.opacity = "1";
+						DocEle.chatroomBtn.className = "page_home";
+					}else{
+						DocEle.chatBox.className = "task_box_h";
+						DocEle.chatMsg.style.width = "0px";						
+						DocEle.face.style.opacity = "0";
+					};
+				},
+				
+				// 获得焦点事件，阻止事件冒泡
+				focusHandler : function(evt){
+					/*Enter键,ctrl+Enter发送消息*/
+					if(evt.ctrlKey && evt.keyCode === 13){
+						sendChatMsg();
+						DocEle.chatMsg.value = "";
+					};
+					if (evt.stopPropagation) { 
+						evt.stopPropagation() ; 
+					}else{ 
+						evt.cancelBubble=true;
+					}
+				},
+				
+				// 点击头像，变成广播
+				faceHandler : function(evt){
+					_("js_privateChat").firstChild.innerHTML = "广播室";
+					CONFIG.privateChat = false;
+				}
+			};
+			
+			var DocEle = {
+				// 系统菜单
+				menuBar : _("menuBar"),
+				// 输入框
+				chatMsg : _("js_chatMsg"),
+				// 进入聊天室按钮
+				chatroomBtn : _("js_chatroomBtn"),
+			
+				// 聊天室
+				chatBox : _("js_chatroom"),
+				// 头像
+				face : _("face"),
+				// 消息列表
+				msgList : _("msg_List"),
+				// 在线用户列表
+				userList : _("msg_userList")
+			}
+			
+			// 弹出系统菜单
+			var animationFun = function(){
+				if(DocEle.menuBar.style.bottom===""){
+					DocEle.menuBar.style.bottom = "0px";
+				}else{
+					DocEle.menuBar.style.bottom = "";
+				}
+			};
+			
+			var sendChatMsg = function(){
+				// 判断是私聊还是广播
+				if( CONFIG.privateChat){
+					socket.emit('privateChatMsg',{
+						toid : CONFIG.pid,
+						content : DocEle.chatMsg.value
+					});
+				}else{
+					socket.emit('chatMsg',{
+						content : DocEle.chatMsg.value
+					});
+				}
+			};
 
+			// 添加一个事件委托
+			(function(){
+				DocEle.menuBar.addEventListener('click',EventHandler.menuHandler,false);
+				DocEle.chatMsg.addEventListener('keydown',EventHandler.focusHandler,false);
+				_("js_chatroom").addEventListener('click',EventHandler.chatroomHandler,false);
+				DocEle.chatroomBtn.addEventListener('click',EventHandler.hideChatHandler,false);
+				// 这里最好处理成上面的事件委托，currentTarget
+				DocEle.face.addEventListener('click',EventHandler.faceHandler,false);
+				//添加socket的处理
+				// 这里是有新人加入时的处理
+				socket.on('enterChatroom',function(data){
+					var nameFlag = DocEle.chatBox.className;
+					var oFrag = document.createElement('li');
+					var nameFrag = document.createElement('li');
+					var element = '<div class="msg_title">'+ data.nickName +" "+' 进入了聊天室 '+'</div>';
+					if(nameFlag === "task_box_h"){
+						DocEle.chatroomBtn.className = "page_home "+"msgPage_home";
+					}
+					oFrag.innerHTML = element;
+					DocEle.msgList.appendChild(oFrag);
+					nameFrag.setAttribute('class','js_name');
+					nameFrag.setAttribute('value',data.id);
+					nameFrag.innerHTML = data.nickName;
+					DocEle.userList.appendChild(nameFrag);
+				});
+				// 添加新消息的事件处理
+				socket.on('newMsg',function(data){
+					var nameFlag = DocEle.chatBox.className;
+					var oFrag = document.createElement('li');
+					if( data.privateMsg ){
+						data.nickName = '[私聊，来自]' + data.nickName;
+					}
+					var now = new Date();
+					oFrag.innerHTML = '<div class="msg_title">'+ data.nickName +" "+ now.getHours() +':'+ now.getMinutes() +':'+ now.getSeconds() +'</div><div class="msg_con">'+ data.content +'</div>';
+					if(nameFlag === "task_box_h"){
+						DocEle.chatroomBtn.className = "page_home "+"msgPage_home";
+					}
+					DocEle.msgList.appendChild(oFrag);
+				});
+				
+				// 登录后返回在线列表
+				socket.on('userList',function(data){
+				// 这也表示登录成功，显示私聊按钮
+					_("js_enterRoom").setAttribute('id','js_privateChat');
+					_("js_send").style.display = "block";
+					_("js_clear").style.display = "block";
+					_("js_privateChat").firstChild.innerHTML = "广播室";
+					var oFrag=document.createDocumentFragment();
+					for( var i in data){
+						var ele = document.createElement('li');
+						ele.setAttribute('class','js_name');
+						ele.setAttribute('value',i);
+						ele.innerHTML = data[i];
+						oFrag.appendChild(ele);
+					}
+					DocEle.userList.appendChild(oFrag);
+				});
+			})();
+		
+		// 3D建模开始，先检测webGL的支持性
 			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
 
 			var SCREEN_WIDTH = window.innerWidth;
@@ -50,7 +266,6 @@
 			var container, camera, scene, renderer;
 
 			var showNum = 1;//现在显示的人物数目
-			var socket = io.connect('http://192.168.1.146:8088');
 
 			// 模型集合
 			var characters = [];
@@ -69,8 +284,25 @@
 					moveForward: false,
 					moveBackward: false,
 					moveLeft: false,
-					moveRight: false
-
+					moveRight: false,
+					
+					death: false,
+					jump: false,
+					attack: false,
+					crwalk: false,
+					crouch: false,
+					pain: false,
+					crouchMove: false,
+					crouchIdle: false,
+					crouchAttach: false,
+					crouchPain: false,
+					crouchDeath: false,
+					salute: false,
+					taunt: false,
+					flip: false,
+					wave: false,
+					point: false
+						
 				};
 			}
 			
@@ -85,83 +317,151 @@
 			animate();
 
 			function init() {
-				// Socket
+			
+				// 初始化
+				// 响应服务器推送数据
 				socket.on('keyDown',function(data){
-					console.log(data);
+				
 					switch( data.key ) {
 
-						case 38:
-						case 87:
+						case 38: /*up*/	
+						case 87: /*W*/ 	
 							controls[data.id].moveForward = true; break;
 
-						case 40:
-						case 83: 
+						case 40: /*down*/
+						case 83: /*S*/ 	
 							controls[data.id].moveBackward = true; break;
 
-						case 37:
-						case 65:  
+						case 37: /*left*/
+						case 65: /*A*/   
 							controls[data.id].moveLeft = true; break;
 
-						case 39:
-						case 68:   
+						case 39: /*right*/
+						case 68: /*D*/    
 							controls[data.id].moveRight = true; break;
-							
+
+						case 32: /*space*/ controls[data.id].jump = true; break;
+					
+						case 89: /*Y*/ controls[data.id].death = true; break;
+					
+						case 81: /*Q*/ controls[data.id].attack = true; break;
+					
+						case 85: /*u*/ controls[data.id].pain = true; break;
+					
+						case 82: /*r*/ controls[data.id].salute = true; break;
+					
+						case 71: /*g*/ controls[data.id].crouchAttach = true; break;
+					
+						case 70: /*f*/ controls[data.id].crouchPain = true; break;
+					
+						case 72: /*h*/ controls[data.id].crouchDeath = true; break;
+					
+						case 84: /*t*/ controls[data.id].taunt = true; break;
+					
+						case 67: /*c*/ controls[data.id].flip = true; break;
+					
+						case 86: /*v*/ controls[data.id].wave = true; break;
+					
+						case 88: /*x*/ controls[data.id].point = true; break;
+					
+						case 17: /*ctrl*/  controls[data.id].crouch = true; break;
+					
+						case 48: 
+						case 49: 
+						case 50: 
+						case 51: 
+						case 52: 
+						case 53: 
+						case 54: 
+						case 55: 
+						case 56: 
+						case 57: 
+							characterAll[data.id].setWeapon(data.key - 48); break;
+						
 					}
+
 				});
 				
+				// 服务器传回来动作停止的消息
 				socket.on('keyUp',function(data){
-					console.log(data);
+					
 					switch( data.key ) {
 
-						case 38:
-						case 87:
-							controls[data.id].moveForward = false; break;
+						case 38: /*up*/
+						case 87: /*W*/ controls[data.id].moveForward = false; break;
 
-						case 40:
-						case 83: 
-							controls[data.id].moveBackward = false; break;
+						case 40: /*down*/
+						case 83: /*S*/ 	controls[data.id].moveBackward = false; break;
 
-						case 37:
-						case 65:  
-							controls[data.id].moveLeft = false; break;
+						case 37: /*left*/
+						case 65: /*A*/ 	 controls[data.id].moveLeft = false; break;
 
-						case 39:
-						case 68:   
-							controls[data.id].moveRight = false; break;
-							
-					}
+						case 39: /*right*/
+						case 68: /*D*/ 	  controls[data.id].moveRight = false; break;
+
+						case 32: /*space*/ controls[data.id].jump = false; break;
+						
+						case 89: /*Y*/ controls[data.id].death = false; break;
+						
+						case 81: /*Q*/ controls[data.id].attack = false; break;
+						
+						case 85: /*u*/ controls[data.id].pain = false; break;
+						
+						case 82: /*r*/ controls[data.id].salute = false; break;
+						
+						case 71: /*g*/ controls[data.id].crouchAttach = false; break;
+						
+						case 70: /*f*/ controls[data.id].crouchPain = false; break;
+						
+						case 72: /*h*/ controls[data.id].crouchDeath = false; break;
+						
+						case 84: /*t*/ controls[data.id].taunt = false; break;
+						
+						case 67: /*c*/ controls[data.id].flip = false; break;
+						
+						case 86: /*v*/ controls[data.id].wave = false; break;
+						
+						case 88: /*x*/ controls[data.id].point = false; break;
+						
+						case 17: /*ctrl*/  controls[data.id].crouch = false; break;
+
+					}					
 				});
 				
 				socket.on('add',function(data){
 					// 添加新成员的处理，请求其他的成员的信息
 					if(characters[showNum]){
-						characterAll[data.id] = characters[showNum];
-						characterAll[data.id].setVisible(true);
+						characterAll[data.id] = characters[ showNum ];
+						characterAll[data.id].setVisible( true );
+						characterAll[data.id].setWeapon( 0 );
 						characterAll[data.id].root.position = data.data.position;
 						characterAll[data.id].bodyOrientation = data.data.orient;
 						characterAll[data.id].showNum = showNum;
 						controls[data.id] = new control();
-						characterAll[data.id].controls = controls[data.id];
+						characterAll[data.id].controls = controls[ data.id ];
 						showNum = showNum + 1;
 					}else if(availibleNum.length){
 						var num = availibleNum.pop();
-						characterAll[data.id] = characters[num];
-						characterAll[data.id].setVisible(true);
+						characterAll[data.id] = characters[ num ];
+						characterAll[data.id].setVisible( true );
+						characterAll[data.id].setWeapon( 0 );
 						characterAll[data.id].root.position = data.data.position;
 						characterAll[data.id].bodyOrientation = data.data.orient;
 						characterAll[data.id].showNum = num;
 						controls[data.id] = new control();
-						characterAll[data.id].controls = controls[data.id];
+						characterAll[data.id].controls = controls[ data.id ];
 					}
 					console.log(data);
 				});
 				
+				// 有新成员加入
 				socket.on('newMem',function(data){
 					console.log(data);
 					
 					if(characters[showNum]){
 						characterAll[data] = characters[showNum];
 						characterAll[data].setVisible(true);
+						characterAll[data].setWeapon( 0 );
 						characterAll[data].showNum = showNum;
 						characterAll[data].root.position.x = 150; 
 						characterAll[data].root.position.y = 72.9;
@@ -185,11 +485,24 @@
 					console.log(data);
 				});
 				
+				// 相应有人离开时的消息
 				socket.on('leave',function(data){
 					console.log(data);
 					controls[data] = null;
 					availibleNum.push(characterAll[data].showNum);
 					characterAll[data].setVisible(false);
+					var node = DocEle.userList.lastChild;
+					// 未登录是空，不会循环
+					while( node ){
+						if( data === node.getAttribute('value') ){
+							var element = document.createElement('li');
+							element.innerHTML = '<div class="msg_title">'+ node.innerHTML +' 离开了聊天室 '+'</div>';
+							DocEle.msgList.appendChild(element);
+							node.innerHTML = '';
+							break;
+						}
+						node = node.previousSibling;
+					}
 					delete characterAll[data];
 				});				
 				
@@ -376,20 +689,45 @@
 
 				var configOgro = {
 
-					baseUrl: "models/ogro/",
-
-					body: "ogro-light.js",
-					skins: [ "grok.jpg", "ogrobase.png", "arboshak.png", "ctf_r.png", "ctf_b.png", "darkam.png", "freedom.png",
-							 "gib.png", "gordogh.png", "igdosh.png", "khorne.png", "nabogro.png",
-							 "sharokh.png" ],
-					weapons:  [ [ "weapon-light.js", "weapon.jpg" ] ],
 					animations: {
+					
 						move: "run",
-						idle: "stand"
+						idle: "stand",
+						jump: "jump",
+						attack: "attack",
+						crouchMove: "crwalk",
+						crouchIdle: "crstand",
+						crouchAttach: "crattack",
+						crouchPain: "crpain",
+						crouchDeath: "crdeath",
+						pain: "pain",
+						salute: "salute",
+						taunt: "taunt",
+						flip: "flip",
+						wave: "wave",
+						point: "point",
+						death: "death"
+						
 					},
 
 					walkSpeed: 350,
-					crouchSpeed: 175
+					crouchSpeed: 175,
+					baseUrl: "models/ratamahatta/",
+
+					body: "ratamahatta.js",
+					skins: [ "ratamahatta.png", "ctf_b.png", "ctf_r.png", "dead.png", "gearwhore.png" ],
+					weapons:  [  [ "weapon.js", "weapon.png" ],
+								 [ "w_bfg.js", "w_bfg.png" ],
+								 [ "w_blaster.js", "w_blaster.png" ],
+								 [ "w_chaingun.js", "w_chaingun.png" ],
+								 [ "w_glauncher.js", "w_glauncher.png" ],
+								 [ "w_hyperblaster.js", "w_hyperblaster.png" ],
+								 [ "w_machinegun.js", "w_machinegun.png" ],
+								 [ "w_railgun.js", "w_railgun.png" ],
+								 [ "w_rlauncher.js", "w_rlauncher.png" ],
+								 [ "w_shotgun.js", "w_shotgun.png" ],
+								 [ "w_sshotgun.js", "w_sshotgun.png" ]
+								]
 
 				};
 
@@ -443,6 +781,7 @@
 	
 					characterAll["thismodel"] = characters[0];
 					characterAll["thismodel"].setVisible(true);
+					characterAll["thismodel"].setWeapon(0);
 					characterAll["thismodel"].controls = controls["thismodel"];
 					characterAll["thismodel"].root.position.x = 150;
 					characterAll["thismodel"].root.position.z = 0;
@@ -471,6 +810,31 @@
 
 			}
 
+			// 所有的键盘事件
+			// 38 上键，向前走
+			// 87 w键，向前走
+			// 40 下键，向后走
+			// 83 s键，向后走
+			// 37 左键，向左转圈
+			// 65 a键，向左转圈
+			// 39 右键，向右转圈
+			// 68 d键，向右转圈
+			// 32 空格键，跳跃
+			// 89 y键，装死
+			// 81 q键，攻击
+			// 17 ctrl键，蹲下
+			// 82 r键，换枪
+			// 71 g键，蹲下攻击
+			// 70 f键，蹲下痛苦
+			// 72 h键，蹲下装死
+			// 84 t键，嘲讽
+			// 67 c键，滑动
+			// 85 u键，痛苦
+			// 86 v键，wave摇动
+			// 88 x键，指点
+			// 48--57  0--9换枪
+			// 192  `键  系统菜单
+			// ctrl+enter 发送聊天消息
 			function onKeyDown ( event ) {
 
 				socket.emit('keyDown',event.keyCode);
@@ -492,7 +856,47 @@
 					case 39: /*right*/
 					case 68: /*D*/    
 						controls["thismodel"].moveRight = true; break;
+
+					case 32: /*space*/ controls["thismodel"].jump = true; break;
 					
+					case 89: /*Y*/ controls["thismodel"].death = true; break;
+					
+					case 81: /*Q*/ controls["thismodel"].attack = true; break;
+					
+					case 85: /*u*/ controls["thismodel"].pain = true; break;
+					
+					case 82: /*r*/ controls["thismodel"].salute = true; break;
+					
+					case 71: /*g*/ controls["thismodel"].crouchAttach = true; break;
+					
+					case 70: /*f*/ controls["thismodel"].crouchPain = true; break;
+					
+					case 72: /*h*/ controls["thismodel"].crouchDeath = true; break;
+					
+					case 84: /*t*/ controls["thismodel"].taunt = true; break;
+					
+					case 67: /*c*/ controls["thismodel"].flip = true; break;
+					
+					case 86: /*v*/ controls["thismodel"].wave = true; break;
+					
+					case 88: /*x*/ controls["thismodel"].point = true; break;
+					
+					case 17: /*ctrl*/  controls["thismodel"].crouch = true; break;
+					
+					case 48: 
+					case 49: 
+					case 50: 
+					case 51: 
+					case 52: 
+					case 53: 
+					case 54: 
+					case 55: 
+					case 56: 
+					case 57: 
+						characterAll["thismodel"].setWeapon(event.keyCode - 48); break;
+					case 192: /*`键*/
+						animationFun();break;
+						
 				}
 
 			};
@@ -515,9 +919,36 @@
 					case 39: /*right*/
 					case 68: /*D*/ 	  controls["thismodel"].moveRight = false; break;
 
+					case 32: /*space*/ controls["thismodel"].jump = false; break;
+					
+					case 89: /*Y*/ controls["thismodel"].death = false; break;
+					
+					case 81: /*Q*/ controls["thismodel"].attack = false; break;
+					
+					case 85: /*u*/ controls["thismodel"].pain = false; break;
+					
+					case 82: /*r*/ controls["thismodel"].salute = false; break;
+					
+					case 71: /*g*/ controls["thismodel"].crouchAttach = false; break;
+					
+					case 70: /*f*/ controls["thismodel"].crouchPain = false; break;
+					
+					case 72: /*h*/ controls["thismodel"].crouchDeath = false; break;
+					
+					case 84: /*t*/ controls["thismodel"].taunt = false; break;
+					
+					case 67: /*c*/ controls["thismodel"].flip = false; break;
+					
+					case 86: /*v*/ controls["thismodel"].wave = false; break;
+					
+					case 88: /*x*/ controls["thismodel"].point = false; break;
+					
+					case 17: /*ctrl*/  controls["thismodel"].crouch = false; break;
+
 				}
 
 			};
+			
 
 			//
 
@@ -840,7 +1271,7 @@
 				renderer.render( scene, camera );
 
 			}
-
+			
 		</script>
 
 	</body>

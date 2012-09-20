@@ -1,0 +1,187 @@
+﻿@charset "utf-8";
+body {
+color: #000;
+font-family:Monospace;
+font-size:13px;
+text-align:center;
+font-weight: bold;
+
+background-color: #fff;
+margin: 0px;
+overflow: hidden;
+}
+
+#info {
+color:#000;
+position: relative;
+margin: 0 auto -2.1em;
+top: 0px;
+
+padding: 5px;
+z-index:100;
+}
+
+/**********系统菜单动画**************/
+#menuBar,
+#menuBar li {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: inline;
+}
+#menuBar{
+	text-align: center;
+	position: absolute;
+	bottom: -60px;
+	width: 100%;
+	-webkit-transition-property: bottom;
+	-webkit-transition-duration: 1s;
+	-webkit-transition-timing-function: ease-in-out;
+	-webkit-transition-delay: 0s;
+}
+#menuBar a:hover{ 
+	z-index: 200;
+}
+#menuBar a img {
+	border: none;
+	-webkit-transition: all .2s;
+	-webkit-transform-origin: bottom;
+	-moz-transform-origin: bottom;
+}
+#menuBar a:hover img {
+	-webkit-transform: scale(1.5);
+	-moz-transform: scale(1.5);
+}
+
+/***********聊天室的界面*****************/
+body a{ text-decoration:none;}
+body a:hover{ text-decoration:none; cursor:pointer;}
+body a img{ border:none;}
+body ul{ margin:0; padding:0; text-align:left; text-decoration:none; list-style:none;}
+body ul li{text-decoration:none; list-style:none;}
+
+.page_home a{background:url(../Images/home0.png) center no-repeat; width:39px; height:39px; display:block;}
+.page_home a:hover{background:url(../Images/home1.png) center no-repeat; }
+
+.task_top{ background:url(../Images/task_top.png) no-repeat; height:12px; width:100%; position:absolute; top:-12px;*top:-13px; left:0px;}
+.task_body{ background:url(../Images/task_body.png) repeat-y;height:570px}
+.task_tb td{ vertical-align:top; font-family:"微软雅黑"; font-size:12px;}
+.task_end{background:url(../Images/task_end.png) no-repeat; height:51px;}
+
+.task_l{ padding-left:9px; width:303px;}
+.task_l ul{ padding-left:2px; padding-bottom:3px;}
+.task_l ul li{line-height:18px; color:#333; display:block;padding:5px}
+.task_l ul li:hover{ background:url(../Images/task_l_a.gif) center left no-repeat;background-size:99.5% 100%}
+.task_s{ height:58px; background:url(../Images/task_s_bg.gif) repeat-x top #f1f5fb; position:absolute;bottom:49px}
+.task_r{ font-family:"微软雅黑"; padding-left:3px;}
+.task_line{ height:2px; background:url(../Images/task_line.png) repeat-x top; margin-left:5px; margin-right:7px;}
+.task_top_ul{ margin-top:20px;}
+.task_r ul li{ height:30px; line-height:30px; text-indent:1em;}
+.task_r ul li span{ float:left;}
+.task_r ul li{ color:#FFF; height:30px; display:block;}
+.task_r ul li img{ border:none; width:36px; height:29px; margin-top:4px; margin-right:5px;}
+.task_r ul li:hover{ background:url(../Images/task_r_a.png) center left no-repeat;}
+
+.task_pic a{ width:64px; height:64px; background:url(../Images/ph.png) center no-repeat;  display:block;}
+.task_pic img{ border:none; margin:8px;}
+.task_bt{ width:44px; height:25px; line-height:25px; text-align:center; position:absolute; bottom:50px;display:none}
+.task_bt a{ color:#FFF; width:44px; height:25px; display:block;}
+.task_bt_l{ right:59px;}
+.task_bt_l a{ background:url(../Images/sign0.png) no-repeat center;}
+.task_bt_l a:hover{ background:url(../Images/sign1.png) no-repeat center;}
+.task_bt_r{ right:16px;}
+.task_bt_r a{background:url(../Images/logIn0.png) no-repeat center;}
+.task_bt_r a:hover{background:url(../Images/logIn1.png) no-repeat center;}
+
+.task_r_a{ position:absolute; text-align:center; line-height:25px;}
+.task_r_a a{ width:88px; height:25px; display:block; background:url(../Images/task_bt.png) no-repeat center; color:#FFF;}
+.task_r_a a:hover{ background:url(../Images/task_bt1.png) center no-repeat;}
+.task_edit{ bottom:50px; right:15px;}
+
+.msg_title{margin-left:5px}
+.msg_con{font-size:14px;font-weight:normal;margin-left:5px}
+
+/********添加头像小动画*********/
+.task_pic{
+	top:-45px;
+	right:20px;
+	display:block;
+	position:absolute;
+	opacity:0;
+	-webkit-transition: opacity 0.2s linear 0.4s;
+}
+.task_pic:hover{
+	-webkit-animation-name:rock;
+	-webkit-animation-delay: 0s;
+	-webkit-animation-duration: 1s;
+	-webkit-animation-timing-function: linear;
+	-webkit-animation-direction: alternate;
+	-webkit-animation-iteration-count: infinite;
+}
+
+@-webkit-keyframes rock{
+	from{-webkit-transform:rotate(-6deg);}
+	to{-webkit-transform:rotate(6deg);}
+}
+/*********来消息时的提醒动画**********/
+.page_home{ 
+	position:absolute; 
+	bottom:5px; 
+	left:10px; 
+	z-index:40001;
+}
+.msgPage_home{
+	-webkit-animation-name: hasMsg;
+	-webkit-animation-delay: 0s;
+	-webkit-animation-duration: 0.4s;
+	-webkit-animation-timing-function: cubic-bezier;
+	-webkit-animation-direction: alternate;
+	-webkit-animation-iteration-count: infinite;
+}
+@-webkit-keyframes hasMsg{
+	from{-webkit-transform:scale(0.85)}
+	to{-webkit-transform:scale(1.1)}
+}
+
+/*******显示和隐藏隐藏菜单动画********/
+#js_chatroom{
+	-webkit-transition-property: width, height, opacity;
+	-webkit-transition-duration: 0.4s, 0.3s, 0.2s;
+	-webkit-transition-timing-function: ease-in-out, ease-in-out, linear;
+	-webkit-transition-delay: 0.05s, 0.05s, 0.1s;
+	z-index:20000; 
+	position:absolute;
+	font-size:12px;
+}
+.task_box{ 
+	width:430px;
+	height: 622px;
+	left:3px; 
+	bottom:0px; 
+	opacity: 1;
+}
+
+.task_box_h{
+	width:0px;
+	height:100px;
+	left:3px; 
+	bottom:0px; 
+	opacity: 0;
+}
+
+/******输入框*******/
+.task_input{ 
+	height:45px; 
+	width:0px;
+	line-height:20px; 
+	color:#333; 
+	margin-top:4px;
+	margin-left:5px;
+	border:#999 1px solid;
+	font-family:"微软雅黑";
+	-webkit-transition:width 0.3s linear 0.1s;
+}
+#js_privateChat{
+	bottom: 80px;
+	-webkit-transition: bottom 0.2s linear 0s;
+}
