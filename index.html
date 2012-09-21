@@ -42,7 +42,7 @@
 		            </td>
 		            <td class="task_r">
 		            	<ul class="task_top_ul" id="msg_userList">
-		                	<li class="js_name">科学计算器</li>
+		                	<li class="js_name">烟水茫茫</li>
 		                </ul>
 		            </td>
 		          </tr>
@@ -52,8 +52,8 @@
 		    <div class="task_end"></div>
 		</div>
 
-		<script src="Three.js"></script>
-		<script src="socket.io.js"></script>
+		<script src="js/Three.js"></script>
+		<script src="js/socket.io.js"></script>
 		<script src='js/MD2CharacterComplex.js'></script>
 
 		<script src='js/Detector.js'></script>
@@ -198,12 +198,17 @@
 				}
 			};
 
-			// 添加一个事件委托
+			// 添加事件委托
 			(function(){
+			
 				DocEle.menuBar.addEventListener('click',EventHandler.menuHandler,false);
+				
 				DocEle.chatMsg.addEventListener('keydown',EventHandler.focusHandler,false);
+				
 				_("js_chatroom").addEventListener('click',EventHandler.chatroomHandler,false);
+				
 				DocEle.chatroomBtn.addEventListener('click',EventHandler.hideChatHandler,false);
+				
 				// 这里最好处理成上面的事件委托，currentTarget
 				DocEle.face.addEventListener('click',EventHandler.faceHandler,false);
 				//添加socket的处理
@@ -223,6 +228,7 @@
 					nameFrag.innerHTML = data.nickName;
 					DocEle.userList.appendChild(nameFrag);
 				});
+				
 				// 添加新消息的事件处理
 				socket.on('newMsg',function(data){
 					var nameFlag = DocEle.chatBox.className;
@@ -255,6 +261,7 @@
 					}
 					DocEle.userList.appendChild(oFrag);
 				});
+				
 			})();
 		
 		// 3D建模开始，先检测webGL的支持性
@@ -560,7 +567,7 @@
 				
 				// 设置3D世界
 
-				var mapStrips = THREE.ImageUtils.loadTexture( "./strips.png" );
+				var mapStrips = THREE.ImageUtils.loadTexture( "./Images/strips.png" );
 				mapStrips.wrapS = mapStrips.wrapT = THREE.RepeatWrapping;
 				mapStrips.magFilter = THREE.NearestFilter;
 				mapStrips.repeat.set( 1, 512 );
@@ -1062,7 +1069,7 @@
 
 					}
 
-					var map = THREE.ImageUtils.loadTexture( "./lensflare/lensflare0_alpha.png" );
+					var map = THREE.ImageUtils.loadTexture( "./Images/alpha.png" );
 					var particleMaterial = new THREE.ParticleBasicMaterial( { size: 3, color: 0xffffff, map: map, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false } );
 
 					var particles = new THREE.ParticleSystem( particleGeo, particleMaterial );
